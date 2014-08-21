@@ -182,7 +182,7 @@ void kmap<K,V>::insert(const K& key, const V& val)
 
     //!insert key-value combination in std::map located at index and update entries by 1
     values[index][key]=val;
-    std::cout<<"the key is "<<key<<" and the value is "<<values[index][key]<<std::endl; //testing if insert actually works
+    //std::cout<<"the key is "<<key<<" and the value is "<<values[index][key]<<std::endl; //testing if insert actually works
     entries+=1;
 }
 
