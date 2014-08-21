@@ -1,6 +1,6 @@
 #include <iostream>
 #include <math.h>
-//i need to rewrite parts of this
+#include <stdint.h>
 using namespace std;
 
 int bitsize(int byte_size)
