@@ -2,6 +2,7 @@
 #define KVECTOR_H_INCLUDED
 
 #include <stdint.h>
+#include <algorithm>
 //!a semi complete substitute for the stl class vector
 //!which allows easy clearing of the assigned memory of
 //!a vector
@@ -67,7 +68,7 @@ kvector<T>::kvector(uint64_t _length, T val)
 {
     data = new T[_length];
     length = _length;
-    for (size_t i=0; i<length; i++)
+    for (uint64_t i=0; i<length; i++)
         data[i] = T(val);
     current = length;
 }
