@@ -52,10 +52,10 @@ public:
     //!and multiply it by kmap<T>::map_size
     //!if they are sizing the map to the number of entries and not the size of the vector this member is not needed by
     //!the user
-    uint64_t entries;
-    kvector<std::map<K,V> > values;
-private:
 
+private:
+		uint64_t entries;
+		kvector<std::map<K,V> > values;
     typename std::map<K,V>::iterator it;
     //!parameter which controls maximum number of entries
     uint64_t kmap_size;//absolute maximum in kmap before rehash
@@ -87,7 +87,7 @@ kmap<K,V>::kmap(uint64_t size) : entries(0),
 {
     //need to make sure the size of value and it is greater than or equal to 2
     //a size below that value makes hashing useless
-    std::cout<<"size is"<<size<<std::endl;
+    //std::cout<<"size is"<<size<<std::endl;
     if (values.getcapacity() < 2)
     {
         values.resize(2);
