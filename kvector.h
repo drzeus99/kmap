@@ -10,7 +10,7 @@
 template <class T>
 class kvector
 {
-public: //check everything later {work on this first}
+public:
     kvector();
     kvector(uint64_t);
     kvector(uint64_t, T);

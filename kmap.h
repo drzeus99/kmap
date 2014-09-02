@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <map>
 #include <vector>
+#include <stdexcept>
 
 template<class K, class V>
 class kmap //!this class is not designed to be used as a constant reference none of the methods will work correctly
@@ -52,7 +53,7 @@ public:
     //!and multiply it by kmap<T>::map_size
     //!if they are sizing the map to the number of entries and not the size of the vector this member is not needed by
     //!the user
-
+  
 private:
 		uint64_t entries;
 		kvector<std::map<K,V> > values;
@@ -61,12 +62,10 @@ private:
     uint64_t kmap_size;//absolute maximum in kmap before rehash
     //!parameters which work with the hashing function
     static const double a;
-    uint64_t m; //size of the vector
+    uint64_t m; //capacity of the vector
     void init_hash_props();
     void rehash(uint64_t);
 };
-
-//!need to make changes to how rehashing occurs will add that after the fact
 
 //defining static variables
 template <class K, class V>
@@ -87,7 +86,7 @@ kmap<K,V>::kmap(uint64_t size) : entries(0),
 {
     //need to make sure the size of value and it is greater than or equal to 2
     //a size below that value makes hashing useless
-    //std::cout<<"size is"<<size<<std::endl;
+    std::cout<<"size is"<<size<<std::endl;
     if (values.getcapacity() < 2)
     {
         values.resize(2);
@@ -276,9 +275,9 @@ void kmap<K,V>::removekey(const K &key)
     if (entries!=0) { //note this is the more common condition to occur so it should go first to decrease code branching.
         unsigned long long converted=hashvalue(key);
         uint64_t position=hashing(converted, m, a);
-        values[position].erase(key);//this returns the number of keys erased. If the key doesn't exist no changes will occur to the map at values[position]
+        if (values[position].erase(key) != 0)//this returns the number of keys erased. If the key doesn't exist no changes will occur to the map at values[position]
         //and also no errors will be thrown.
-        entries-=1;
+            entries-=1;
     }
     //if there are no entries this method does absolutely nothing.
 }
@@ -336,30 +335,39 @@ uint64_t kmap<K,V>::next(uint64_t index)
 }
 
 //!this is using the iterator to get the key
-//!this can throw an error or crash the program in the
-//!case it[index] is not pointing to anything valid
+//!this can throw an error
+//!if it is not pointing to anything valid
 template <class K, class V>
 const K& kmap<K,V>::getkey(uint64_t index)
 {
-    return it->first;
+    if (values[index].end() != it)   //assume this is the more common condition
+        return it->first;
+    else
+        throw std::out_of_range("accessing iterator where no key-value pair exists");
 }
 
 //!this is using the iterator to get the value
-//!this can throw an error or crash the program in the
-//!case it[index] is not pointing to anything valid
+//!this can throw an error
+//!if it is not pointing to anything valid
 template <class K, class V>
 V& kmap<K,V>::getvalue(uint64_t index)
 {
-    return it->second;
+    if (values[index].end() != it)
+        return it->second;
+    else
+        throw std::out_of_range("accessing iterator where no key-value pair exists");
 }
 
 //!this is using the iterator to set the value
-//!this can throw an error or crash the program in the
-//!case it[index] is not pointing to anything valid
+//!this can throw an error
+//!if it is not pointing to anything valid
 template <class K, class V>
 void kmap<K,V>::setvalue(uint64_t index, const V& value)
 {
-    it->second=value;
+    if (values[index].end() != it)
+        it->second=value;
+    else
+        throw std::out_of_range("accessing iterator where no key-value pair exists");
 }
 
 //!resizes kmap but only if the inputed size is greater than the current kmap_size
