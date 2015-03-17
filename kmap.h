@@ -62,6 +62,8 @@ public:
     kmap_iterator<K,V> start();
     uint64_t end();
     void next(kmap_iterator<K,V> &);
+    uint64_t hash_size();
+    std::map<K,V>& batch(uint64_t);
     //!end of methods used for iteration through the map
 
     bool empty();
@@ -69,7 +71,7 @@ public:
     //!parameter which controls maximum number of entries
     static const uint64_t map_size;//estimated maximum in each std::map
     //!note:this is public in case the user needs to resize the map based on the size of the required vector
-    //!they take the size of the vector (which you can get from using the end method) they want to create
+    //!they take the size of the vector (which you can get from using the hash_size() they want to create
     //!and multiply it by kmap<T>::map_size
     //!if they are sizing the map to the number of entries and not the size of the vector this member is not needed by
     //!the user
@@ -77,7 +79,6 @@ public:
 private:
 	uint64_t entries;
     kvector<std::map<K,V> > values;
-    //!parameter which controls maximum number of entries
     uint64_t kmap_size;//absolute maximum in kmap before rehash
     //!parameters which work with the hashing function
     static const double a;
@@ -354,6 +355,19 @@ void kmap<K,V>::next(kmap_iterator<K,V> & key_position)
         key_position.it = values[key_position.index].begin();
         return;
     }
+}
+
+template <class K, class V>
+uint64_t kmap<K,V>::hash_size()
+{
+    return m;//the size of the hash table
+}
+
+//returns the map which is inside the vector or hash table at the position index
+template <class K, class V>
+std::map<K,V>& kmap<K,V>::batch(uint64_t index)
+{
+    return values[index];
 }
 
 //!this is using the iterator to get the key
