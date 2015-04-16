@@ -3,9 +3,63 @@
 
 #include <stdint.h>
 #include <algorithm>
+#include <utility>
 //!a semi complete substitute for the stl class vector
 //!which allows easy clearing of the assigned memory of
 //!a vector
+
+template <class I>
+class kvector_iterator {
+private:
+    I* pointr;
+public:
+    kvector_iterator() {};
+    kvector_iterator(I*);
+    bool operator!=(const kvector_iterator&);
+    bool operator==(const kvector_iterator&);
+	I& operator*();
+    kvector_iterator& operator++();
+    kvector_iterator operator++(int);
+};
+
+template <class I>
+kvector_iterator<I>::kvector_iterator(I* input)
+{
+    pointr = input;
+}
+
+template <class I>
+bool kvector_iterator<I>::operator!=(const kvector_iterator<I>& test)
+{
+    return pointr != test.pointr;
+}
+
+template <class I>
+bool kvector_iterator<I>::operator==(const kvector_iterator<I>& test)
+{
+    return pointr == test.pointr;
+}
+
+template <class I>
+I& kvector_iterator<I>::operator*()
+{
+    return *pointr;
+}
+
+template <class I>
+kvector_iterator<I>& kvector_iterator<I>::operator++()
+{
+    pointr += 1;
+    return *this;
+}
+
+template <class I>
+kvector_iterator<I> kvector_iterator<I>::operator++(int)
+{
+    kvector_iterator result(*this);
+    ++*this;
+    return result;
+}
 
 template <class T>
 class kvector
@@ -15,6 +69,7 @@ public:
     kvector(uint64_t);
     kvector(uint64_t, T);
     kvector(const kvector &);
+    kvector(kvector&&);
     ~kvector();
     void resize(uint64_t);
     void clear();
@@ -27,12 +82,14 @@ public:
     bool empty() const;
     void clean();
     void swap(kvector<T> &);
-    kvector<T> & operator= (const kvector<T> &);
+    kvector<T> & operator= (const kvector &);
+    kvector<T>& operator= (kvector&&);
     T & back();
     const T & back() const;
     T & front();
     const T & front() const;
-
+    kvector_iterator<T> begin();
+    kvector_iterator<T> end();
 private:
     T* data;
     static const uint64_t init_length;
@@ -79,6 +136,13 @@ kvector<T>::kvector(const kvector &input):length(input.length), current(input.cu
     data = new T[length];
     for (uint64_t i = 0; i<current; i++)
         data[i] = input.data[i];
+}
+
+template <class T>
+kvector<T>::kvector(kvector&& other):length(std::move(other.length)), current(std::move(other.length))
+{
+    data = other.data;
+    other.data = nullptr; //to prevent data from being deleted
 }
 
 template <class T>
@@ -205,6 +269,16 @@ kvector<T> & kvector<T>::operator= (const kvector<T> &input)
 }
 
 template <class T>
+kvector<T>& kvector<T>::operator= (kvector<T>&& input)
+{
+    current = std::move(input.current);
+    length = std::move(input.length);
+    data = input.data;
+    input.data = nullptr;
+    return *this;
+}
+
+template <class T>
 T & kvector<T>::back()
 {
     if (current!=0)
@@ -232,5 +306,17 @@ template <class T>
 const T & kvector<T>::front() const
 {
     return data[0];
+}
+
+template <class T>
+kvector_iterator<T> kvector<T>::begin()
+{
+    return kvector_iterator<T>(data);
+}
+
+template <class T>
+kvector_iterator<T> kvector<T>::end()
+{
+    return kvector_iterator<T>(data + length);
 }
 #endif // KVECTOR_H_INCLUDED

@@ -9,24 +9,114 @@
 #include <map>
 #include <vector>
 #include <stdexcept>
+#include <utility>
 
-//note this structure does not allow this container to be used with methods in algorithms header
+//need to build an interator for kvector as well.
+//than transfer next code into kmap_iterator
+//make begin set up the internal iterator object in kmap
+//and return the internal object
+//change kmap methods to work with internal object
+//yay lots of work
+//need to defriend kmap_iterator and kmap yay
+
 template<class K, class V>
-struct kmap_iterator
+class kmap;//forward declaration
+
+template<class K, class V>
+class kmap_iterator
 {
-	uint64_t index;
+private:
+	kvector_iterator<std::map<K,V> > index;
 	typename std::map<K,V>::iterator it;
-	bool operator!=(uint64_t);
+	kvector_iterator<std::map<K,V> > end;
+    friend class kmap<K,V>;
+    std::map<K,V>& map();
+public:
+    kmap_iterator() {};
+    kmap_iterator(kvector_iterator<std::map<K,V> >);
+    kmap_iterator(kvector_iterator<std::map<K,V> >, typename std::map<K,V>::iterator, kvector_iterator<std::map<K,V> >);
+	bool operator!=(const kmap_iterator&);
+	std::pair<const K, V> operator*();
+	typename std::map<K,V>::iterator& operator->();
+    kmap_iterator& operator++();
+    kmap_iterator operator++(int);
+    bool in_map();
 };
 
 template<class K, class V>
-bool kmap_iterator<K,V>::operator!=(uint64_t end)
+kmap_iterator<K,V>::kmap_iterator(kvector_iterator<std::map<K,V> > index)
 {
-	if (this->index == end) {
-    return false;
-	}
-	else
-		return true;
+    this->index = index;
+}
+
+template<class K, class V>
+kmap_iterator<K,V>::kmap_iterator(kvector_iterator<std::map<K,V> > index, typename std::map<K,V>::iterator it, kvector_iterator<std::map<K,V> > end)
+{
+    this->index = index;
+    this->it = it;
+    this->end = end;
+}
+
+template<class K, class V>
+bool kmap_iterator<K,V>::operator!=(const kmap_iterator<K,V>& test)
+{
+	return this->index != test.index;
+}
+
+template<class K, class V>
+std::map<K,V>& kmap_iterator<K,V>::map()
+{
+    return *index;
+}
+
+template<class K, class V>
+std::pair<const K, V> kmap_iterator<K,V>::operator*()
+{
+    return *it;
+}
+
+template<class K, class V>
+typename std::map<K,V>::iterator& kmap_iterator<K,V>::operator->()
+{
+    return it;
+}
+
+template<class K, class V>
+kmap_iterator<K,V>& kmap_iterator<K,V>::operator++()
+{
+    ++it;
+    if (it != map().end()) {
+        return *this;
+    }
+    else {
+		//finding the correct index for key_position
+        ++index;
+        if (index == end)
+            return *this;
+        while(map().empty()) {
+			++index;
+            if (index == end)
+				return *this;
+        }
+		//found the correct index not at end of kvector
+		//updating key_position.it
+        it = map().begin();
+        return *this;
+    }
+}
+
+template<class K, class V>
+kmap_iterator<K,V> kmap_iterator<K,V>::operator++(int)
+{
+    kmap_iterator<K,V> result(*this);
+    ++*this;
+    return result;
+}
+
+template<class K, class V>
+bool kmap_iterator<K,V>::in_map()
+{
+    return it != map().end();
 }
 
 template<class K, class V>
@@ -35,8 +125,10 @@ class kmap //!this class is not designed to be used as a constant reference none
 public:
     kmap();
     kmap(uint64_t);
-    kmap(const kmap<K,V>&);
-    kmap<K,V>& operator=(const kmap<K,V>&);
+    kmap(const kmap&);
+    kmap<K,V>& operator=(const kmap&);
+    kmap(kmap&&);
+    kmap<K,V>& operator=(kmap&&);
 
     //!beginning of methods used to manage kmap [inserting keys, clearing/cleaning, resizing, and swapping]
     void clear();
@@ -51,17 +143,13 @@ public:
 
     //!begining of methods used for finding, getting and setting keys/values
     //!note you cant set the key because that would possibly destroy the map
-    kmap_iterator<K,V> findkey(const K&);
-    void removekey(const K&);
-    const K& getkey(const kmap_iterator<K,V> &);
-    V& getvalue(const kmap_iterator<K,V> &);
-    void setvalue(const kmap_iterator<K,V> &, const V&);
+    kmap_iterator<K,V> find(const K&);
+    void remove(const K&);
     //!end of methods used for finding, getting and setting keys/values
 
     //!beginning of methods used for iteration through the map
-    kmap_iterator<K,V> start();
-    uint64_t end();
-    void next(kmap_iterator<K,V> &);
+    kmap_iterator<K,V> begin();
+    kmap_iterator<K,V> end();
     uint64_t hash_size();
     std::map<K,V>& batch(uint64_t);
     //!end of methods used for iteration through the map
@@ -71,14 +159,13 @@ public:
     //!parameter which controls maximum number of entries
     static const uint64_t map_size;//estimated maximum in each std::map
     //!note:this is public in case the user needs to resize the map based on the size of the required vector
-    //!they take the size of the vector (which you can get from using the hash_size() they want to create
-    //!and multiply it by kmap<T>::map_size
-    //!if they are sizing the map to the number of entries and not the size of the vector this member is not needed by
-    //!the user
-
+    //!take the size of the vector (which can be gotten from using the hash_size method) then
+    //!multiply by kmap<T>::map_size
+    //!if sizing the map to the number of entries use entry number instead
 private:
 	uint64_t entries;
     kvector<std::map<K,V> > values;
+    //!parameter which controls maximum number of entries
     uint64_t kmap_size;//absolute maximum in kmap before rehash
     //!parameters which work with the hashing function
     static const double a;
@@ -151,6 +238,23 @@ kmap<K,V>& kmap<K,V>::operator=(const kmap<K,V>& input)
             values[i]=input.values[i];
         }
     }
+    return *this;
+}
+
+template <class K, class V>
+kmap<K,V>::kmap(kmap<K,V>&& input): entries(std::move(input.entries)), values(std::move(input.values)),
+     kmap_size(std::move(input.kmap_size)), m(std::move(input.m))
+{
+
+}
+
+template <class K, class V>
+kmap<K,V>& kmap<K,V>::operator=(kmap<K,V>&& input)
+{
+    entries = std::move(input.entries);
+    values = std::move(input.values);
+    kmap_size = std::move(input.kmap_size);
+    m = std::move(input.m);
     return *this;
 }
 
@@ -244,12 +348,13 @@ void kmap<K,V>::rehash(uint64_t old_m)
 //!Otherwise the iterator will point to the end
 //!This function is useful if you want to use getkey, getvalue or setvalue methods without iterating through the entire kmap
 template <class K, class V>
-kmap_iterator<K,V> kmap<K,V>::findkey(const K& key)
+kmap_iterator<K,V> kmap<K,V>::find(const K& key)
 {
     unsigned long long converted=hashvalue(key);
-    kmap_iterator<K,V> key_position;
-    key_position.index = hashing(converted, m, a);
-    key_position.it = values[key_position.index].find(key);
+    uint64_t index = hashing(converted, m, a);
+    kvector_iterator<std::map<K, V> > vector_index(&values[index]);
+    typename std::map<K,V>::iterator it = values[index].find(key);
+    kmap_iterator<K,V> key_position(vector_index, it, values.end());
     return key_position;
 }
 
@@ -260,12 +365,12 @@ kmap_iterator<K,V> kmap<K,V>::findkey(const K& key)
 template <class K, class V>
 V& kmap<K,V>::operator[](const K& key)
 {
-    kmap_iterator<K,V> key_position = findkey(key);
+    kmap_iterator<K,V> key_position = find(key);
     //The method for checking if key exists below is faster than using the getvalue method and a try catch block.
     //since the try catch block will cause the code to slow down every time the key does not exist in kmap and the key needs inserting.
-    if (key_position.it != values[key_position.index].end())
+    if (key_position.in_map())
     {
-        return key_position.it->second;
+        return key_position->second;
     }
     else
     {
@@ -279,17 +384,18 @@ V& kmap<K,V>::operator[](const K& key)
 
             //!Because the map was rehashed the index needs to be calculated again.
             unsigned long long converted = hashvalue(key);
-            key_position.index = hashing(converted, m, a);
+            uint64_t vector_index = hashing(converted, m, a);
+            key_position.index = &values[vector_index];
         }
 
         //!update entries by 1 and insert key in std::map located at index and return the reference to its mapped value
         entries+=1;
-        return values[key_position.index][key];
+        return key_position.map()[key];
     }
 }
 
 template <class K, class V>
-void kmap<K,V>::removekey(const K &key)
+void kmap<K,V>::remove(const K &key)
 {
     if (entries!=0) { //note this is the more common condition to occur so it should go first to decrease code branching.
         unsigned long long converted=hashvalue(key);
@@ -303,58 +409,33 @@ void kmap<K,V>::removekey(const K &key)
 
 //!finds the starting point for iteration through kmap
 template <class K, class V>
-kmap_iterator<K,V> kmap<K,V>::start()
+kmap_iterator<K,V> kmap<K,V>::begin()
 {//need to change algorithm to work with kmap_iterator
     kmap_iterator<K,V> key_position;
     if (entries!=0) { //note this is the more common condition to occur so it should go first to decrease code branching.
         uint64_t index=0;//!start at the begining of values
         //!find the first index of values in which the map contains key-value pairs
         while(values[index].empty()) {
-					index+=1;
-					if (index == m) {
-						key_position.index = end();
-						return key_position;
-					}
+            index+=1;
+            if (index == m) {
+                return end();
+            }
         }
         key_position.it = values[index].begin();
-        key_position.index = index;
+        key_position.index = &values[index];
     }
     else
-        key_position.index = end(); //!the position right after the end of values
+        key_position.index = values.end(); //!the position right after the end of values
 
+    key_position.end = values.end();
     return key_position;
 }
 
 //!returns the ending point for iteration through kmap
 template <class K, class V>
-uint64_t kmap<K,V>::end()
+kmap_iterator<K,V> kmap<K,V>::end()
 {
-    return m;//!the position right after the end of values
-}
-
-
-template <class K, class V>
-void kmap<K,V>::next(kmap_iterator<K,V> & key_position)
-{
-    key_position.it++;
-    if (key_position.it != values[key_position.index].end()) {
-        return; //key_position.it has been updated and key_position.index does not need changing
-    }
-    else {
-		//finding the correct index for key_position
-        key_position.index += 1;
-        if (key_position.index == m)
-            return;
-        while(values[key_position.index].empty()) {
-			key_position.index += 1;
-            if (key_position.index == m)
-				return;
-        }
-		//found the correct index not at end of kvector
-		//updating key_position.it
-        key_position.it = values[key_position.index].begin();
-        return;
-    }
+    return kmap_iterator<K,V>(values.end());//!the position right after the end of values
 }
 
 template <class K, class V>
@@ -368,39 +449,6 @@ template <class K, class V>
 std::map<K,V>& kmap<K,V>::batch(uint64_t index)
 {
     return values[index];
-}
-
-//!this is using the iterator to get the key
-//!this can throw an error if it is not pointing to anything valid
-template <class K, class V>
-const K& kmap<K,V>::getkey(const kmap_iterator<K,V> & key_position)
-{
-	if (values[key_position.index].end() != key_position.it)   //assume this is the more common condition
-		return key_position.it->first;
-	else
-		throw std::out_of_range("accessing kmap_iterator where no key-value pair exists");
-}
-
-//!this is using the iterator to get the value
-//!this can throw an error if it is not pointing to anything valid
-template <class K, class V>
-V& kmap<K,V>::getvalue(const kmap_iterator<K,V> & key_position)
-{
-	if (values[key_position.index].end() != key_position.it)
-		return key_position.it->second; //assume this is the more common condition
-	else
-		throw std::out_of_range("accessing kmap_iterator where no key-value pair exists");
-}
-
-//!this is using the iterator to set the value
-//!this can throw an error if it is not pointing to anything valid
-template <class K, class V>
-void kmap<K,V>::setvalue(const kmap_iterator<K,V> & key_position, const V& value)
-{
-	if (values[key_position.index].end() != key_position.it)
-		key_position.it->second = value; //assume this is the more common condition
-	else
-		throw std::out_of_range("accessing kmap_iterator where no key-value pair exists");
 }
 
 //!resizes kmap but only if the inputed size is greater than the current kmap_size
