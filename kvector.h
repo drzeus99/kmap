@@ -4,16 +4,13 @@
 #include <stdint.h>
 #include <algorithm>
 #include <utility>
-//!a semi complete substitute for the stl class vector
-//!which allows easy clearing of the assigned memory of
-//!a vector
 
 template <class I>
 class kvector_iterator {
 private:
     I* pointr;
 public:
-    kvector_iterator() {};
+    kvector_iterator(): pointr(nullptr) {};
     kvector_iterator(I*);
     bool operator!=(const kvector_iterator&);
     bool operator==(const kvector_iterator&);
@@ -61,6 +58,62 @@ kvector_iterator<I> kvector_iterator<I>::operator++(int)
     return result;
 }
 
+template <class I>
+class const_kvector_iterator
+{
+private:
+    const I* pointr;
+public:
+    const_kvector_iterator(): pointr(nullptr) {};
+    const_kvector_iterator(const I*);
+    bool operator!=(const const_kvector_iterator&);
+    bool operator==(const const_kvector_iterator&);
+    const I& operator*();
+    const_kvector_iterator& operator++();
+    const_kvector_iterator operator++(int);
+};
+
+template <class I>
+const_kvector_iterator<I>::const_kvector_iterator(const I* input)
+{
+	pointr = input;
+}
+
+template <class I>
+bool const_kvector_iterator<I>::operator !=(const const_kvector_iterator& test)
+{
+	return pointr != test.pointr;
+}
+
+template <class I>
+bool const_kvector_iterator<I>::operator ==(const const_kvector_iterator& test)
+{
+	return pointr == test.pointr;
+}
+
+template <class I>
+const I& const_kvector_iterator<I>::operator *()
+{
+	return *pointr;
+}
+
+template <class I>
+const_kvector_iterator<I>& const_kvector_iterator<I>::operator ++()
+{
+    pointr += 1;
+    return *this;
+}
+
+template <class I>
+const_kvector_iterator<I> const_kvector_iterator<I>::operator ++(int)
+{
+    const_kvector_iterator result(*this);
+    ++*this;
+    return result;
+}
+
+//fill in methods and than fix the kvector below to work with const iterators
+//need to make sure move operations instead of assignments occur in certain procedures
 template <class T>
 class kvector
 {
@@ -89,7 +142,9 @@ public:
     T & front();
     const T & front() const;
     kvector_iterator<T> begin();
+    const_kvector_iterator<T> begin() const;
     kvector_iterator<T> end();
+    const_kvector_iterator<T> end() const;
 private:
     T* data;
     static const uint64_t init_length;
@@ -167,11 +222,11 @@ void kvector<T>::resize(uint64_t size)
     T* newdata= new T[size];
     uint64_t minimum=length<size ? length : size;
     for (uint64_t i=0; i<minimum; i++ )
-        newdata[i] = data[i];
+        newdata[i] = std::move(data[i]);
     delete[] data;
     data = newdata;
     length = size;
-    current = size; //note::this behavior matches exactly the behavior of std::vector
+    current = size;
 }
 
 //!cleans the vector of all values
@@ -207,7 +262,7 @@ void kvector<T>::push_back(T val)
             length *= 2;
         T* new_data = new T[length];//produce a new array
         for (int i=0; i<current; i++)//copy values from old array into new array
-            new_data[i] = data[i];
+            new_data[i] = std::move(data[i]);
         delete[] data; //delete old array
         data = new_data; //copy new array to old array;
    }
@@ -273,6 +328,7 @@ kvector<T>& kvector<T>::operator= (kvector<T>&& input)
 {
     current = std::move(input.current);
     length = std::move(input.length);
+    delete[] data;
     data = input.data;
     input.data = nullptr;
     return *this;
@@ -315,8 +371,20 @@ kvector_iterator<T> kvector<T>::begin()
 }
 
 template <class T>
+const_kvector_iterator<T> kvector<T>::begin() const
+{
+	return const_kvector_iterator<T>(data);
+}
+
+template <class T>
 kvector_iterator<T> kvector<T>::end()
 {
-    return kvector_iterator<T>(data + length);
+    return kvector_iterator<T>(data + current);
+}
+
+template <class T>
+const_kvector_iterator<T> kvector<T>::end() const
+{
+	return const_kvector_iterator<T>(data + current);
 }
 #endif // KVECTOR_H_INCLUDED
